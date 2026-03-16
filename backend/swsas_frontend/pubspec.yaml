@@ -1,0 +1,25 @@
+name: swsas_app
+description: Smart Women Safety Analytics System App
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.1.0
+  shared_preferences: ^2.2.1
+  geolocator: ^10.1.0 # For SOS location
+  permission_handler: ^11.0.0
+  google_maps_flutter: ^2.5.0
+  sensors_plus: ^3.0.3 # For accelerator auto distress
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
