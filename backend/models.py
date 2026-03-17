@@ -20,6 +20,10 @@ class User(Base):
     mic_access_enabled = Column(Boolean, default=False)
     sensor_monitoring_enabled = Column(Boolean, default=True)
     
+    # Emergency Call Feature Tracking
+    last_emergency_call_time = Column(DateTime, nullable=True)
+    sos_status = Column(String, default="inactive") # inactive, active_sos
+    
     contacts = relationship("EmergencyContact", back_populates="owner")
     incidents = relationship("Incident", back_populates="user")
     sos_alerts = relationship("SosAlert", back_populates="user")

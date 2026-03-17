@@ -15,6 +15,10 @@ dependencies:
   permission_handler: ^11.0.0
   google_maps_flutter: ^2.5.0
   sensors_plus: ^3.0.3 # For accelerator auto distress
+  flutter_phone_direct_caller: ^2.1.1 # Direct calling
+  url_launcher: ^6.2.5 # Fallback calling
+  firebase_core: ^4.5.0 # Firebase Auth
+  firebase_auth: ^6.2.0 # Firebase Auth Token
 
 dev_dependencies:
   flutter_test:

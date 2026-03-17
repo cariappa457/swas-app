@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import models, schemas
 from database import get_db
+from dependencies import get_current_user
+
 router = APIRouter()
 
 @router.post("/register", response_model=schemas.User, status_code=status.HTTP_201_CREATED)
@@ -26,33 +28,26 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
     return new_user
 
-@router.get("/profile/{user_id}", response_model=schemas.User)
-def get_user_profile(user_id: int, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+@router.get("/profile/me", response_model=schemas.User)
+def get_user_profile(user: models.User = Depends(get_current_user)):
     return user
 
-@router.post("/profile/{user_id}/contacts", response_model=schemas.EmergencyContact)
-def add_emergency_contact(user_id: int, contact: schemas.EmergencyContactCreate, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-        
+@router.post("/contacts", response_model=schemas.EmergencyContact)
+def add_emergency_contact(contact: schemas.EmergencyContactCreate, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     if len(user.contacts) >= 5:
         raise HTTPException(status_code=400, detail="Maximum 5 emergency contacts allowed")
         
     new_contact = models.EmergencyContact(
         name=contact.name,
         phone=contact.phone,
-        owner_id=user_id
+        owner_id=user.id
     )
     db.add(new_contact)
     db.commit()
     db.refresh(new_contact)
     return new_contact
 
-@router.get("/profile/{user_id}/contacts", response_model=list[schemas.EmergencyContact])
-def get_emergency_contacts(user_id: int, db: Session = Depends(get_db)):
-    contacts = db.query(models.EmergencyContact).filter(models.EmergencyContact.owner_id == user_id).all()
+@router.get("/contacts", response_model=list[schemas.EmergencyContact])
+def get_emergency_contacts(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    contacts = db.query(models.EmergencyContact).filter(models.EmergencyContact.owner_id == user.id).all()
     return contacts
