@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/wave_background.dart';
+import '../widgets/custom_button.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -73,19 +74,12 @@ class ProfileScreen extends StatelessWidget {
                       const SizedBox(height: 8),
                       _buildProfileField("johndoe@placeholder.com"),
                       const SizedBox(height: 24),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () {},
-                          style: TextButton.styleFrom(
-                            backgroundColor: const Color(0xFFFFB6C1), // Light pink box
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          ),
-                          child: const Text("Log Out", style: TextStyle(color: Color(0xFFFA648C), fontWeight: FontWeight.bold)),
-                        ),
+                      CustomButton(
+                        text: "Log Out",
+                        onPressed: () {},
+                        buttonVariant: CustomButtonVariant.outlined,
+                        icon: Icons.logout_rounded,
+                        height: 50,
                       )
                     ],
                   ),

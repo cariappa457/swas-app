@@ -4,6 +4,7 @@ import 'dart:convert';
 import '../config/environment.dart';
 import 'main_shell.dart';
 import '../widgets/wave_background.dart';
+import '../widgets/custom_button.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({Key? key}) : super(key: key);
@@ -118,29 +119,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ],
                     ),
                     const SizedBox(height: 48),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Already Member? Login",
-                          style: TextStyle(color: Colors.white70, fontSize: 13),
-                        ),
-                        _isLoading 
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : ElevatedButton(
-                                onPressed: _submit,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: const Color(0xFFFA648C),
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: const Text("Register", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                              ),
-                      ],
+                    CustomButton(
+                      text: "Register",
+                      onPressed: _isLoading ? null : _submit,
+                      isLoading: _isLoading,
+                      buttonVariant: CustomButtonVariant.primary,
                     ),
                   ],
                 ),
