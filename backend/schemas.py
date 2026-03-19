@@ -46,6 +46,14 @@ class SosAlertBase(BaseModel):
 class SosAlertCreate(SosAlertBase):
     pass
 
+class EmergencyCallTrigger(BaseModel):
+    lat: float
+    lng: float
+    trigger_type: str  # e.g., "manual", "auto"
+
+class ContactPhoneUpdate(BaseModel):
+    phone: str
+
 class SosAlert(SosAlertBase):
     id: int
     user_id: int

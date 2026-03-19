@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 import '../config/environment.dart';
 import '../widgets/custom_button.dart';
+import '../services/emergency_service.dart';
 import 'map_screen.dart';
 
 /// Redesigned SOS Dashboard with premium UI/UX.
@@ -24,6 +26,7 @@ class _SosDashboardState extends State<SosDashboard>
   bool _sosActive = false;
   int _countdown = 15;
   Timer? _timer;
+  Future<List<dynamic>>? _contactsFuture;
 
   // SOS button scale animation
   late AnimationController _btnController;
@@ -36,6 +39,7 @@ class _SosDashboardState extends State<SosDashboard>
   @override
   void initState() {
     super.initState();
+    _contactsFuture = _fetchContacts();
 
     // Button press scale
     _btnController = AnimationController(
@@ -113,42 +117,52 @@ class _SosDashboardState extends State<SosDashboard>
     _pulseController.repeat(reverse: true);
   }
 
+  Future<List<dynamic>> _fetchContacts() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Mock data for local testing when Firebase is bypassed
+      return [
+        {"name": "Mom", "phone": "112"},
+        {"name": "Dad (Work)", "phone": "112"},
+        {"name": "Local Police", "phone": "100"},
+        {"name": "Community Guard", "phone": "100"}
+      ];
+    }
+    
+    try {
+      final token = await user.getIdToken();
+      final response = await http.get(
+        Uri.parse('${Environment.apiBaseUrl}/api/contacts'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      debugPrint("Error fetching contacts: $e");
+    }
+    return [];
+  }
+
   Future<void> _fireSOSAPI() async {
     setState(() => _sosActive = false);
     _pulseController.repeat(reverse: true);
 
     try {
-      LocationPermission perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) {
-        perm = await Geolocator.requestPermission();
-      }
-      final Position pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.best);
-
-      final url = Uri.parse('${Environment.apiBaseUrl}/api/sos/trigger?user_id=1');
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "trigger_type": "manual",
-          "lat": pos.latitude,
-          "lng": pos.longitude,
-          "audio_url": null,
-        }),
-      );
+      // Defer to the newly implemented EmergencyService to handle coordinates, 
+      // rate limiting, backend notifications and natively dialing 112.
+      await EmergencyService.triggerEmergencyProtocol("manual");
 
       if (!mounted) return;
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Alert Sent Successfully. Help is on the way!"),
-            backgroundColor: Color(0xFF4CAF50),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      } else {
-        throw Exception("Status: ${response.statusCode}");
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Alert Sent Successfully. Emergency Called & Contacts Notified!"),
+          backgroundColor: Color(0xFF4CAF50),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -192,6 +206,8 @@ class _SosDashboardState extends State<SosDashboard>
                   style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                 ),
               ),
+              const SizedBox(height: 48),
+              _buildQuickCallSection(),
               const SizedBox(height: 40),
             ],
           ),
@@ -378,6 +394,100 @@ class _SosDashboardState extends State<SosDashboard>
               ),
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickCallSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Quick Emergency Contacts",
+          style: TextStyle(
+              fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+        const SizedBox(height: 16),
+        FutureBuilder<List<dynamic>>(
+          future: _contactsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final contacts = snapshot.data ?? [];
+            if (contacts.isEmpty) {
+              return Center(
+                child: Text("No emergency contacts found. Add them in settings.",
+                    style: TextStyle(color: Colors.grey[500])),
+              );
+            }
+            final displayedContacts = contacts.take(4).toList();
+
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 2.6,
+              ),
+              itemCount: displayedContacts.length,
+              itemBuilder: (context, index) {
+                final contact = displayedContacts[index];
+                return GestureDetector(
+                  onTap: () => EmergencyService.callNumber(contact['phone']),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.grey[100]!),
+                    ),
+                    child: Row(
+                      children: [
+                        const CircleAvatar(
+                          backgroundColor: Color(0xFFFFE4EC),
+                          radius: 16,
+                          child: Icon(Icons.person,
+                              size: 18, color: Color(0xFFFA648C)),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                contact['name'] ?? 'Unknown',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600, fontSize: 13),
+                              ),
+                              Text(
+                                "Call",
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.green[600]),
+                              )
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
         ),
       ],
     );

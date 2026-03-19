@@ -4,3 +4,4 @@ pydantic
 sqlalchemy
 scikit-learn
 numpy
+firebase-admin

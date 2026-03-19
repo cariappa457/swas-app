@@ -126,14 +126,12 @@ def upload_sensor_data(sensor_data: dict, db: Session = Depends(get_db)):
         "keys_received": list(sensor_data.keys())
     }
 
-@router.post("/report-incident", response_model=schemas.Incident)
-def report_incident(payload: schemas.ReportIncidentPayload, db: Session = Depends(get_db)):
-    # We use a dummy user for unauthenticated requests for now
-    dummy_user = db.query(models.User).first()
-    user_id = dummy_user.id if dummy_user else 1
+from dependencies import get_current_user
 
+@router.post("/report-incident", response_model=schemas.Incident)
+def report_incident(payload: schemas.ReportIncidentPayload, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     db_incident = models.Incident(
-        user_id=user_id,
+        user_id=user.id,
         lat=payload.latitude,
         lng=payload.longitude,
         type=payload.incident_type,
