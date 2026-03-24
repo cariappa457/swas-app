@@ -17,6 +17,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   bool _isLoading = false;
 
@@ -29,8 +31,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         final url = Uri.parse('$baseUrl/api/register');
         final payload = {
           "firebase_uid": "dummy_firebase_uid_${DateTime.now().millisecondsSinceEpoch}",
-          "email": _emailController.text.contains('@') ? _emailController.text : "${_emailController.text}@placeholder.com",
-          "phone": _emailController.text.contains('@') ? "0000000000" : _emailController.text,
+          "email": _emailController.text,
+          "phone": _phoneController.text,
           "name": _nameController.text,
           "age": 25,
           "auto_distress_enabled": true,
@@ -104,10 +106,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                     const SizedBox(height: 48),
                     _buildTextField(_nameController, "Full Name"),
-                    const SizedBox(height: 24),
-                    _buildTextField(_emailController, "Email"),
-                    const SizedBox(height: 24),
-                    _buildTextField(TextEditingController(), "Password", isPassword: true),
+                    const SizedBox(height: 16),
+                    _buildTextField(_emailController, "Email Address"),
+                    const SizedBox(height: 16),
+                    _buildTextField(_phoneController, "Phone Number"),
+                    const SizedBox(height: 16),
+                    _buildTextField(_passwordController, "Password", isPassword: true),
                     const SizedBox(height: 32),
                     Row(
                       children: [

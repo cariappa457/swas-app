@@ -8,15 +8,52 @@ from dependencies import get_current_user
 
 router = APIRouter()
 
+import os
+from twilio.rest import Client
+from twilio.base.exceptions import TwilioRestException
+import logging
+
+# Set up logging for background tasks
+logger = logging.getLogger(__name__)
+
 def send_emergency_sms(user: models.User, lat: float, lng: float, db: Session):
-    """Background task to notify contacts without blocking the API response"""
+    """Background task to notify contacts via Twilio SMS without blocking the API response"""
     contacts = db.query(models.EmergencyContact).filter(models.EmergencyContact.owner_id == user.id).all()
     location_url = f"https://maps.google.com/?q={lat},{lng}"
+    message_body = f"URGENT: {user.name} has triggered an SOS! Live location: {location_url}"
     
+    # Twilio Configuration
+    account_sid = os.environ.get('TWILIO_ACCOUNT_SID')
+    auth_token = os.environ.get('TWILIO_AUTH_TOKEN')
+    from_phone = os.environ.get('TWILIO_PHONE_NUMBER')
+
+    if not all([account_sid, auth_token, from_phone]):
+        logger.warning("Twilio credentials missing. Falling back to dummy SMS logging.")
+        for contact in contacts:
+            logger.info(f"[DUMMY SMS] To: {contact.phone} | Body: {message_body}")
+        return
+
+    try:
+        client = Client(account_sid, auth_token)
+    except Exception as e:
+        logger.error(f"Failed to initialize Twilio client: {str(e)}")
+        return
+        
     for contact in contacts:
-        message = f"URGENT: {user.name} has triggered an SOS! Live location: {location_url}"
-        # Trigger actual SMS gateway here (Twilio, AWS SNS, Msg91)
-        print(f"Sending SMS to {contact.phone}: {message}")
+        if not contact.phone:
+            continue
+            
+        try:
+            message = client.messages.create(
+                body=message_body,
+                from_=from_phone,
+                to=contact.phone
+            )
+            logger.info(f"Successfully sent Twilio SMS to {contact.phone}. SID: {message.sid}")
+        except TwilioRestException as e:
+            logger.error(f"Twilio API Error sending to {contact.phone}: {e.msg}")
+        except Exception as e:
+             logger.error(f"Unexpected error sending SMS to {contact.phone}: {str(e)}")
 
 @router.post("/sos/trigger-call")
 def trigger_emergency_call(

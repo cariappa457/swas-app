@@ -111,19 +111,88 @@ def get_hotspots(db: Session = Depends(get_db)):
         "features": features
     }
 
+from dependencies import get_current_user
+from ml_inference import lstm_predictor
+from fastapi import BackgroundTasks
+import logging
+
+logger = logging.getLogger(__name__)
+
+# In-memory buffer for sliding sensor windows per user
+# Shape: dict mapping user_id -> List(shape 50x6)
+_sensor_buffers = {}
+
 @router.post("/sensor/upload")
-def upload_sensor_data(sensor_data: dict, db: Session = Depends(get_db)):
+def upload_sensor_data(
+    sensor_data: dict, 
+    background_tasks: BackgroundTasks,
+    user: models.User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
     """
-    Accepts accelerometer, gyroscope, and GPS payload.
-    In a real app, this would be written to a time-series DB or big data lake 
-    like BigQuery/InfluxDB for ML training. 
-    Here we mock successful ingestion.
+    Accepts live accelerometer/gyroscope readings.
+    Buffers incoming data into a sliding window (size 50).
+    Runs inference via the MockLSTMPredictor.
+    If anomaly detected -> Auto trigger SOS.
     """
-    # Ex: { "acc_x": 0.5, "acc_y": 0.1, "acc_z": 9.8, "gyro_x": 0.1, ... }
+    uid = user.id
+    if uid not in _sensor_buffers:
+        _sensor_buffers[uid] = []
+        
+    # Extract the 6 features expected by the LSTM
+    features = [
+        float(sensor_data.get("acc_x", 0.0)),
+        float(sensor_data.get("acc_y", 0.0)),
+        float(sensor_data.get("acc_z", 0.0)),
+        float(sensor_data.get("gyro_x", 0.0)),
+        float(sensor_data.get("gyro_y", 0.0)),
+        float(sensor_data.get("gyro_z", 0.0)),
+    ]
+    _sensor_buffers[uid].append(features)
+    
+    # Process when the window reaches 50 timesteps
+    if len(_sensor_buffers[uid]) >= 50:
+        window = _sensor_buffers[uid][-50:]
+        
+        # Shift buffer by 25 to provide a 50% overlap for continuous detection
+        _sensor_buffers[uid] = _sensor_buffers[uid][25:]
+        
+        prob = lstm_predictor.predict_anomaly(window)
+        
+        # If probability indicates severe distress (shaking/falling)
+        if prob > 0.8:
+            logger.warning(f"ML DETECTED ANOMALY (prob={prob:.2f}) FOR USER {uid}. AUTO-TRIGGERING SOS!")
+            
+            # Fetch location if available in telemetry
+            lat = float(sensor_data.get("lat", 0.0))
+            lng = float(sensor_data.get("lng", 0.0))
+            
+            payload = schemas.EmergencyCallTrigger(
+                trigger_type="auto_ml_distress",
+                lat=lat,
+                lng=lng
+            )
+            
+            # Trigger the SOS flow via the existing logic
+            from routers.sos import trigger_emergency_call
+            try:
+                # Invoking the SOS router directly runs DB updates and Twilio background tasks
+                trigger_emergency_call(payload, background_tasks, user, db)
+                return {
+                    "status": "critical_sos_triggered",
+                    "probability": prob,
+                    "message": "Automated SOS protocol initiated successfully."
+                }
+            except Exception as e:
+                # Ignore 429 too many requests (cooldown) from raising 500
+                logger.warning(f"Auto SOS trigger ignored or failed: {str(e)}")
+                
+        return {"status": "processed", "probability": prob, "buffered": len(_sensor_buffers[uid])}
+        
     return {
-        "status": "success", 
-        "message": "Sensor data received for latency-free storage",
-        "keys_received": list(sensor_data.keys())
+        "status": "buffering", 
+        "buffered": len(_sensor_buffers[uid]),
+        "required": 50
     }
 
 from dependencies import get_current_user

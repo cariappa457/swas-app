@@ -147,23 +147,73 @@ class _SosDashboardState extends State<SosDashboard>
   }
 
   Future<void> _fireSOSAPI() async {
-    setState(() => _sosActive = false);
+    setState(() {
+       _sosActive = false;
+    });
     _pulseController.repeat(reverse: true);
 
+    // Show a loading overlay while preparing emergency SMS and Call
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: Color(0xFFD50000)),
+                  SizedBox(height: 16),
+                  Text("Preparing alert...", style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
     try {
+      // 1. Fetch contacts to pass to the service
+      List<dynamic> contactsData = [];
+      if (_contactsFuture != null) {
+         contactsData = await _contactsFuture!;
+      } else {
+         contactsData = await _fetchContacts();
+      }
+      
+      List<String> phoneNumbers = contactsData
+          .map((c) => c['phone'] as String?)
+          .where((phone) => phone != null && phone.isNotEmpty)
+          .cast<String>()
+          .toList();
+
       // Defer to the newly implemented EmergencyService to handle coordinates, 
-      // rate limiting, backend notifications and natively dialing 112.
-      await EmergencyService.triggerEmergencyProtocol("manual");
+      // rate limiting, backend notifications, generating SMS, and natively dialing 112.
+      await EmergencyService.triggerEmergencyProtocol("manual", emergencyContacts: phoneNumbers);
+      
+      // Close the loading dialog
+      if (mounted && Navigator.canPop(context)) {
+          Navigator.pop(context);
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Alert Sent Successfully. Emergency Called & Contacts Notified!"),
+          content: Text("Emergency alert ready. Please tap send in your SMS app!"),
           backgroundColor: Color(0xFF4CAF50),
           behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 4),
         ),
       );
     } catch (e) {
+      // Close the loading dialog
+      if (mounted && Navigator.canPop(context)) {
+          Navigator.pop(context);
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
