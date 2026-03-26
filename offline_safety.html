@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Offline Survival Mode</title>
+    <!-- Use basic Google Fonts (would work offline if cached or using system fonts as fallback) -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1E1E1E;
+            --surface-hover: #2A2A2A;
+            --text-primary: #F5F5F5;
+            --text-secondary: #AAAAAA;
+            --alert-red: #FA003F;
+            --alert-red-glow: rgba(250, 0, 63, 0.4);
+            --calm-orange: #FF8A00;
+            --safe-green: #00E676;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        /* Mobile App Container Simulation */
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            background-color: var(--bg-color);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* HEADER */
+        .header {
+            padding: 24px 20px;
+            padding-top: 40px; /* Safe area for mobile */
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            background: linear-gradient(180deg, rgba(30,30,30,1) 0%, rgba(18,18,18,0) 100%);
+        }
+        .header h1 {
+            font-size: 22px;
+            font-weight: 800;
+            margin-left: 12px;
+            letter-spacing: -0.5px;
+            color: var(--calm-orange);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .header-icon {
+            width: 24px;
+            height: 24px;
+            fill: var(--calm-orange);
+        }
+
+        /* MAIN CONTENT */
+        .content {
+            padding: 20px;
+            flex: 1;
+            padding-bottom: 100px; /* Space for the floating button */
+        }
+
+        .intro {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        /* QUICK ACCESS BUTTON (Floating & Fixed) */
+        .panic-btn-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 420px;
+            z-index: 100;
+        }
+
+        .btn-panic {
+            width: 100%;
+            background-color: var(--alert-red);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            padding: 20px;
+            font-size: 20px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            box-shadow: 0 8px 32px var(--alert-red-glow);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s ease;
+            animation: pulse-shadow 2s infinite;
+        }
+
+        .btn-panic:active {
+            transform: scale(0.96);
+        }
+
+        .btn-panic svg {
+            width: 28px;
+            height: 28px;
+            fill: white;
+        }
+
+        /* SAFETY TIPS CARDS (Expandable) */
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .card {
+            background-color: var(--surface-color);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: background-color 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .card-header {
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .card:hover .card-header {
+            background-color: var(--surface-hover);
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(255, 138, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+
+        .card-icon svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--calm-orange);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .card-toggle {
+            width: 24px;
+            height: 24px;
+            fill: var(--text-secondary);
+            transition: transform 0.3s ease;
+        }
+
+        .card.active .card-toggle {
+            transform: rotate(180deg);
+        }
+
+        .card.active .card-icon {
+            background: rgba(255, 138, 0, 0.2);
+        }
+
+        .card-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-out, padding 0.4s ease;
+            background-color: rgba(0,0,0,0.2);
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .card.active .card-body {
+            max-height: 200px;
+            padding: 16px 20px 20px 76px;
+        }
+
+
+        /* PANIC MODE (Overlay) */
+        .panic-mode-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .panic-mode-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+            animation: red-flash 1s ease-out;
+        }
+
+        .panic-header {
+            background-color: var(--alert-red);
+            padding: 40px 20px 20px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 4px 20px rgba(250, 0, 63, 0.5);
+            margin-bottom: 20px;
+        }
+
+        .panic-header div {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .btn-exit {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+        }
+
+        .panic-title {
+            font-size: 28px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both infinite;
+            transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+            perspective: 1000px;
+        }
+
+        .checklist {
+            padding: 0 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .checklist-item {
+            background: var(--surface-color);
+            border-left: 4px solid var(--alert-red);
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+
+        .check-number {
+            width: 28px;
+            height: 28px;
+            background: rgba(250, 0, 63, 0.1);
+            color: var(--alert-red);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .check-content h3 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: white;
+        }
+
+        .check-content p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        /* ANIMATIONS */
+        @keyframes pulse-shadow {
+            0% { box-shadow: 0 0 0 0 var(--alert-red-glow); }
+            70% { box-shadow: 0 0 0 15px rgba(250, 0, 63, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(250, 0, 63, 0); }
+        }
+
+        @keyframes red-flash {
+            0% { background-color: var(--alert-red); }
+            100% { background-color: #000; }
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        /* Utilities */
+        .color-safe { color: var(--calm-orange); }
+
+        /* SVGs */
+        svg {
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <!-- Header -->
+        <header class="header">
+            <!-- Shield/Wifi-off Icon -->
+            <svg class="header-icon" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35zm-2.03-3.61l.53-.48 1.49 1.35 1.49-1.35.53.48c4.35-3.95 7.18-6.57 7.18-9.45 0-2.09-1.63-3.72-3.72-3.72-1.37 0-2.65.8-3.32 2.03H9.86c-.67-1.23-1.95-2.03-3.32-2.03-2.09 0-3.72 1.63-3.72 3.72 0 2.88 2.83 5.51 7.18 9.45z"/>
+                <!-- Line crossing the heart for "offline" visual metaphor -->
+                <path d="M3.27 3.27L20.5 20.5l-1.27 1.27L2 4.54z"/>
+            </svg>
+            <h1>Offline Survival</h1>
+        </header>
+
+        <!-- Content -->
+        <div class="content">
+            <p class="intro">
+                You have <strong class="color-safe">zero network connection</strong>. Do not panic. 
+                Follow these tested precautionary actions to maximize your safety right now.
+            </p>
+
+            <h2 class="section-title">
+                <svg viewBox="0 0 24 24" style="width:18px; fill:white;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                Safety Actions Checklist
+            </h2>
+
+            <div class="card-list" id="tips-container">
+                <!-- Tips dynamically injected by JS -->
+            </div>
+        </div>
+
+        <!-- Floating Panic Button -->
+        <div class="panic-btn-container">
+            <button class="btn-panic" id="btn-danger">
+                <svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                I am in danger
+            </button>
+        </div>
+
+        <!-- PANIC MODE OVERLAY -->
+        <div class="panic-mode-overlay" id="panic-modal">
+            <div class="panic-header">
+                <div>
+                    <button class="btn-exit" id="btn-exit-panic">Cancel</button>
+                    <span style="font-weight: 700; opacity: 0.8;">OFFLINE EMERGENCY</span>
+                </div>
+                <h1 class="panic-title">ACT NOW</h1>
+            </div>
+
+            <div class="checklist">
+                
+                <div class="checklist-item">
+                    <div class="check-number">1</div>
+                    <div class="check-content">
+                        <h3>Scream "FIRE" not "Help"</h3>
+                        <p>People are more likely to respond to a fire alarm than a general cry for help. Be loud, clear, and unignorable.</p>
+                    </div>
+                </div>
+
+                <div class="checklist-item">
+                    <div class="check-number">2</div>
+                    <div class="check-content">
+                        <h3>Run to Crowded Areas</h3>
+                        <p>Do not hide in dark or isolated spots. Sprint towards the nearest well-lit street, store, or group of people.</p>
+                    </div>
+                </div>
+
+                <div class="checklist-item">
+                    <div class="check-number">3</div>
+                    <div class="check-content">
+                        <h3>Prepare Defense</h3>
+                        <p>Keep your keys between your fingers, grip your bag tightly, or pick up any heavy object nearby (rock, stick) to defend yourself.</p>
+                    </div>
+                </div>
+
+                <div class="checklist-item">
+                    <div class="check-number">4</div>
+                    <div class="check-content">
+                        <h3>Break the Distance</h3>
+                        <p>If someone grabs you, do not pull away—step into them, use elbows, target eyes, throat, and groin to force a release.</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JavaScript for Interactions -->
+    <script>
+        const tipsData = [
+            {
+                id: 'tip1',
+                title: 'Move to well-lit areas',
+                desc: 'Immediately change your direction towards streetlights, stores, or heavily trafficked roads. Avoid alleys and shortcuts.',
+                icon: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>' // SVG path placeholder
+            },
+            {
+                id: 'tip2',
+                title: 'Pretend you are on a call',
+                desc: 'Hold your phone to your ear and speak loudly. Say things like "I am at [Current Location], I see you across the street!" to deter followers.',
+                icon: '<path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>'
+            },
+            {
+                id: 'tip3',
+                title: 'Activate loud noises',
+                desc: 'If you have a physical whistle, safety alarm, or can bang objects together, do so. Noise causes panic in attackers.',
+                icon: '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>'
+            },
+            {
+                id: 'tip4',
+                title: 'Trust your instincts',
+                desc: 'If a situation, person, or route feels wrong, do not rationalize it. Leave immediately. Politeness is not worth risking your safety.',
+                icon: '<path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>'
+            },
+            {
+                id: 'tip5',
+                title: 'Identify escape routes',
+                desc: 'Constantly scan your environment for open businesses, subway entrances, or crowds you can merge into. Always know where the exits are.',
+                icon: '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 9h-2V7h-2v5H6v2h2v5h2v-5h2v-2z"/>'
+            }
+        ];
+
+        // Default Icon path if none matches perfectly
+        const defaultIcon = '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>';
+
+        function renderCards() {
+            const container = document.getElementById('tips-container');
+            
+            tipsData.forEach((tip, index) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                // First card open by default
+                if(index === 0) card.classList.add('active');
+
+                card.innerHTML = `
+                    <div class="card-header" onclick="toggleCard(this)">
+                        <div class="card-icon">
+                            <svg viewBox="0 0 24 24">${tip.icon || defaultIcon}</svg>
+                        </div>
+                        <div class="card-title">${tip.title}</div>
+                        <svg class="card-toggle" viewBox="0 0 24 24">
+                            <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                        </svg>
+                    </div>
+                    <div class="card-body">
+                        ${tip.desc}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function toggleCard(headerElement) {
+            const card = headerElement.parentElement;
+            
+            // Optionally close other cards like an accordion:
+            // document.querySelectorAll('.card').forEach(c => {
+            //     if(c !== card) c.classList.remove('active');
+            // });
+
+            card.classList.toggle('active');
+        }
+
+        // Initialize Cards
+        renderCards();
+
+        // Panic Mode Logic
+        const btnDanger = document.getElementById('btn-danger');
+        const panicModal = document.getElementById('panic-modal');
+        const btnExitPanic = document.getElementById('btn-exit-panic');
+
+        btnDanger.addEventListener('click', () => {
+            // Vibrate device if supported
+            if (navigator.vibrate) {
+                navigator.vibrate([200, 100, 200, 100, 500]);
+            }
+            panicModal.classList.add('active');
+        });
+
+        btnExitPanic.addEventListener('click', () => {
+            panicModal.classList.remove('active');
+        });
+
+    </script>
+</body>
+</html>

@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../config/environment.dart';
 import '../widgets/custom_button.dart';
 import '../services/emergency_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'map_screen.dart';
 
 /// Redesigned SOS Dashboard with premium UI/UX.
@@ -453,6 +454,64 @@ class _SosDashboardState extends State<SosDashboard>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Offline Survival Mode Banner
+        GestureDetector(
+          onTap: () async {
+            try {
+              // canLaunchUrl often fails for relative local URLs on Web
+              await launchUrl(Uri.parse('offline_safety.html'));
+            } catch (e) {
+              print('Could not launch offline_safety.html: $e');
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF161616),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFFA003F).withOpacity(0.3)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFA003F).withOpacity(0.15),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFA003F).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.shield_rounded, color: Color(0xFFFA003F), size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Offline Survival Mode",
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Zero network? Tap here immediately.",
+                        style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white54, size: 16),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
         const Text(
           "Quick Emergency Contacts",
           style: TextStyle(
