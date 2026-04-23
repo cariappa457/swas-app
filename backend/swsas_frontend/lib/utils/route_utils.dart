@@ -1,4 +1,6 @@
 import 'dart:math';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/hotspot.dart';
 
@@ -41,60 +43,64 @@ class RouteUtils {
     return false;
   }
 
-  /// Generates a mock route between two points for demonstration purposes.
-  /// In a production app, this would call the Google Directions API.
-  static List<LatLng> generateMockRoute(LatLng start, LatLng end) {
-    List<LatLng> points = [];
-    const int segments = 20;
-
-    for (int i = 0; i <= segments; i++) {
-      double fraction = i / segments;
-      double lat = start.latitude + (end.latitude - start.latitude) * fraction;
-      double lng = start.longitude + (end.longitude - start.longitude) * fraction;
-      
-      // Add slight noise to make it look like a road path instead of a straight line,
-      // but keep start and end exact
-      if (i > 0 && i < segments) {
-         // Adds ~50 meters of jitter to make it look like urban driving
-         lat += (Random().nextDouble() - 0.5) * 0.0005;
-         lng += (Random().nextDouble() - 0.5) * 0.0005;
-      }
-      points.add(LatLng(lat, lng));
-    }
-    return points;
+  /// Generates a real route between two points using OSRM to follow actual streets.
+  /// Falls back to mock route if network fails.
+  static Future<List<LatLng>> generateMockRoute(LatLng start, LatLng end) async {
+    return await _fetchOSRMRoute(start, end);
   }
 
-  /// Generates a "Safer" alternative route by explicitly offsetting the path
-  /// to avoid the direct line. This is a functional mock for the demo.
-  static List<LatLng> generateSafeRoute(LatLng start, LatLng end) {
-      List<LatLng> points = [];
-      const int segments = 20;
-      
-      // Calculate a midpoint that is significantly offset (e.g., looping around)
-      // We will push the route 0.03 degrees (approx 3km) perpendicular to the straight line
+  /// Generates a "Safer" alternative route. In production, this would use waypoints.
+  static Future<List<LatLng>> generateSafeRoute(LatLng start, LatLng end) async {
+      // Calculate a midpoint that is offset to force OSRM to find an alternative real-street route.
       double dLat = end.latitude - start.latitude;
       double dLng = end.longitude - start.longitude;
       
       LatLng midpointOffset = LatLng(
-        start.latitude + (dLat / 2) - dLng * 0.5, // Perpendicular offset
-        start.longitude + (dLng / 2) + dLat * 0.5,
+        start.latitude + (dLat / 2) - dLng * 0.3, 
+        start.longitude + (dLng / 2) + dLat * 0.3,
       );
 
-      // Route from start -> midpointOffset -> end
-      for (int i = 0; i <= segments ~/ 2; i++) {
-        double fraction = i / (segments / 2);
-        double lat = start.latitude + (midpointOffset.latitude - start.latitude) * fraction;
-        double lng = start.longitude + (midpointOffset.longitude - start.longitude) * fraction;
-        points.add(LatLng(lat, lng));
-      }
+      final part1 = await _fetchOSRMRoute(start, midpointOffset);
+      final part2 = await _fetchOSRMRoute(midpointOffset, end);
       
-      for (int i = 1; i <= segments ~/ 2; i++) {
-        double fraction = i / (segments / 2);
-        double lat = midpointOffset.latitude + (end.latitude - midpointOffset.latitude) * fraction;
-        double lng = midpointOffset.longitude + (end.longitude - midpointOffset.longitude) * fraction;
-        points.add(LatLng(lat, lng));
+      if (part1.isEmpty || part2.isEmpty) {
+         return []; // Fallback handled by caller if empty
       }
+      return [...part1, ...part2];
+  }
+
+  static Future<List<LatLng>> _fetchOSRMRoute(LatLng start, LatLng end) async {
+    try {
+      final url = Uri.parse(
+          'http://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?geometries=geojson&overview=full');
       
-      return points;
+      // Import http client dynamically or rely on caller context. 
+      // Luckily we can just use the standard http or dio, but we don't have it imported here.
+      // Let's add the import at the top using multi_replace in a second.
+      // For now, I will write the code using http.get.
+      final response = await http.get(url);
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final routes = data['routes'];
+        if (routes != null && routes.isNotEmpty) {
+          final coordinates = routes[0]['geometry']['coordinates'] as List;
+          return coordinates.map((coord) => LatLng(coord[1], coord[0])).toList();
+        }
+      }
+    } catch (e) {
+      print("OSRM Routing failed: $e");
+    }
+    
+    // Fallback Mock straight line
+    List<LatLng> points = [];
+    const int segments = 20;
+    for (int i = 0; i <= segments; i++) {
+      double fraction = i / segments;
+      double lat = start.latitude + (end.latitude - start.latitude) * fraction;
+      double lng = start.longitude + (end.longitude - start.longitude) * fraction;
+      points.add(LatLng(lat, lng));
+    }
+    return points;
   }
 }

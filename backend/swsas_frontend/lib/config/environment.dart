@@ -5,19 +5,19 @@ class Environment {
   // Toggle this flag before moving to Production Cloud
   static const bool isProduction = false;
   
-  // Example for Google Cloud Run / Render: "https://swsas-api-xyz.run.app"
-  static const String productionApiBaseUrl = 'https://your-production-cloud-url.com';
+  // --- TUNNEL SETUP ---
+  // If you are using Ngrok or LocalTunnel, put your public URL here:
+  static const String tunnelApiBaseUrl = 'https://YOUR-TUNNEL-URL.ngrok-free.app';
+  static const bool useTunnel = false; // Set to true when your partner tests from elsewhere
   
   static String get apiBaseUrl {
     if (isProduction) return productionApiBaseUrl;
+    if (useTunnel) return tunnelApiBaseUrl;
     
-    // Web uses localhost
-    if (kIsWeb) return 'http://localhost:8000';
+    // Physical devices on the same Wi-Fi use the computer's local IP
+    // Your current Local IP: 192.168.31.181
+    if (Platform.isAndroid || Platform.isIOS) return 'http://192.168.31.181:8000';
     
-    // Android emulator requires 10.0.2.2 to access the host machine's localhost
-    if (Platform.isAndroid) return 'http://10.0.2.2:8000';
-    
-    // iOS Simulators / Windows / MacOS apps use localhost safely
     return 'http://localhost:8000';
   }
 }

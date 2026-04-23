@@ -2,7 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'screens/onboarding_screen.dart';
 
-void main() {
+import 'package:firebase_core/firebase_core.dart';
+import 'services/background_service.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint("Firebase initialization skipped (expected in prototype without google-services.json): $e");
+  }
+
+  // Background service initializes safely in SosDashboard after permissions are granted.
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,

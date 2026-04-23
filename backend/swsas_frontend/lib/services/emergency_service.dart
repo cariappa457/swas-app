@@ -7,13 +7,14 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
 import '../config/environment.dart';
 
 class EmergencyService {
   static const String policeNumber = "112";
 
   static Future<void> triggerEmergencyProtocol(String triggerType, {List<String>? emergencyContacts}) async {
-    // 1. Fetch Location
     Position? position;
     try {
       position = await Geolocator.getCurrentPosition(
@@ -22,27 +23,55 @@ class EmergencyService {
       print("GPS unavailable, proceeding without precise location.");
     }
 
-    // 2. Notify Backend (Logs Event)
     await _notifyBackend(position, triggerType);
 
-    // 3. Send SMS to Contacts (if available) with Location Link
     if (position != null) {
        await sendEmergencySMS(position.latitude, position.longitude, recipients: emergencyContacts);
     }
 
-    // 4. Initiate the Phone Call (Optional logic: You might want to delay this or rely on the user sending the SMS first, but keeping existing flow)
     await callNumber(policeNumber);
   }
   
-  /// Opens the native SMS app with a pre-filled emergency message and Google Maps link.
-  /// Supports multiple recipients based on the platform.
+  static const platform = MethodChannel('com.example.swsas_app/sms');
+
+  /// Sends an automated SMS directly in the background using native Android SmsManager.
+  /// Falls back to URL launcher if permissions fail or on unsupported platforms.
   static Future<bool> sendEmergencySMS(double lat, double lng, {List<String>? recipients}) async {
       final String locationLink = "https://maps.google.com/?q=$lat,$lng";
       final String message = "HELP! I am in danger.\nMy location: $locationLink";
       
+      if (kIsWeb || Platform.isIOS) {
+          return _fallbackUrlLauncherSMS(message, recipients);
+      }
+
+      try {
+          if (await Permission.sms.request().isGranted) {
+              if (recipients != null && recipients.isNotEmpty) {
+                  for (String number in recipients) {
+                      await platform.invokeMethod('sendDirectSms', {
+                          "phoneNumber": number,
+                          "message": message,
+                      });
+                  }
+              } else {
+                  await platform.invokeMethod('sendDirectSms', {
+                      "phoneNumber": '112',
+                      "message": message,
+                  });
+              }
+              print("Native Direct SMS sent successfully.");
+              return true;
+          }
+      } catch (e) {
+          print("Native Direct SMS failed: $e");
+      }
+
+      return _fallbackUrlLauncherSMS(message, recipients);
+  }
+
+  static Future<bool> _fallbackUrlLauncherSMS(String message, List<String>? recipients) async {
       String phoneVariables = "";
       if (recipients != null && recipients.isNotEmpty) {
-          // Join numbers appropriately based on platform
           if (kIsWeb) {
               phoneVariables = recipients.join(',');
           } else if (Platform.isAndroid) {
@@ -53,16 +82,11 @@ class EmergencyService {
              phoneVariables = recipients.join(',');
           }
       } else {
-         // Placeholder if no contacts are provided
          phoneVariables = "112"; 
       }
 
-      // Construct the SMS URI
-      // Note: URI encoding is tricky for SMS. On Android, `?body=` works. On iOS, `&body=` is sometimes needed if numbers are present.
-      // The `url_launcher` package documentation recommends `?body=` for the first parameter.
       final String scheme = 'sms:$phoneVariables';
       final String query = '?body=${Uri.encodeComponent(message)}';
-      
       final Uri smsUri = Uri.parse('$scheme$query');
 
       try {
@@ -70,8 +94,6 @@ class EmergencyService {
           await launchUrl(smsUri);
           return true;
         } else {
-          print("Could not launch SMS app with URI: $smsUri");
-           // Fallback attempt without body if the complex URI fails
            final Uri fallbackUri = Uri.parse('sms:$phoneVariables');
            if (await canLaunchUrl(fallbackUri)) {
               await launchUrl(fallbackUri);
@@ -88,15 +110,19 @@ class EmergencyService {
   static Future<void> _notifyBackend(Position? position, String type) async {
     try {
       String token = "test_token";
-      try {
-        final user = FirebaseAuth.instance.currentUser;
-        if (user != null) {
-          token = await user.getIdToken() ?? "test_token";
-        } else {
-          print("User not logged into Firebase. Using test_token fallback.");
+      
+      // Check if Firebase is actually initialized before using it
+      if (Firebase.apps.isNotEmpty) {
+        try {
+          final user = FirebaseAuth.instance.currentUser;
+          if (user != null) {
+            token = await user.getIdToken() ?? "test_token";
+          }
+        } catch (authError) {
+          print("Firebase Auth exception: $authError. Using test_token fallback.");
         }
-      } catch (authError) {
-        print("Firebase Auth exception: $authError. Using test_token fallback.");
+      } else {
+        print("Firebase not initialized. Using test_token fallback for SOS.");
       }
 
       await http.post(

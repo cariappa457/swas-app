@@ -3,23 +3,34 @@ import random
 import time
 
 def simulate_distress():
-    url = "http://localhost:8001/api/sensor/upload"
+    # Update this to 8000 to match your current backend port
+    url = "http://127.0.0.1:8000/api/sensor/upload"
     headers = {
         "Authorization": "Bearer test_token"
     }
     
-    print("Starting ML Distress Simulation...")
-    print("Sending 50 arrays of high-variance accelerometer data to trigger the auto-SOS protocol...")
+    print("===============================================")
+    print(" SWSAS ML Distress Simulation (DSVA Pattern)   ")
+    print("===============================================")
+    
+    # We will send 50 samples. Samples 1-40 will be erratic (The Shake/Impact)
+    # Samples 41-50 will be zero movement (The Fall/Silence)
     
     for i in range(50):
-        # Simulate extreme distress (falling, rapid shaking)
+        if i < 40:
+            # High intensity shake/impact pattern
+            acc_val = random.uniform(15.0, 30.0) 
+        else:
+            # Dead stillness pattern (Following the fall)
+            acc_val = random.uniform(0.0, 0.2)
+
         payload = {
-            "acc_x": random.uniform(-15.0, 15.0),
-            "acc_y": random.uniform(-15.0, 15.0),
-            "acc_z": random.uniform(-15.0, 15.0),
-            "gyro_x": random.uniform(-15.0, 15.0),
-            "gyro_y": random.uniform(-15.0, 15.0),
-            "gyro_z": random.uniform(-15.0, 15.0),
+            "acc_x": acc_val,
+            "acc_y": acc_val,
+            "acc_z": acc_val,
+            "gyro_x": 0.0,
+            "gyro_y": 0.0,
+            "gyro_z": 0.0,
             "lat": 12.9716,
             "lng": 77.5946
         }
@@ -31,12 +42,12 @@ def simulate_distress():
                 status = data.get("status")
                 
                 if status == "critical_sos_triggered":
-                    print(f"\n[SUCCESS] SOS Triggered at Window {i+1}!")
-                    print(f"ML Probability: {data.get('probability'):.4f}")
-                    print(f"Message: {data.get('message')}")
+                    print(f"\n[🚨 ALERT] ML SOS TRIGGERED at Window {i+1}!")
+                    print(f"Algorithm: DSVA (Dynamic Signal Variance Analysis)")
+                    print(f"ML Probability: {data.get('probability', 0.0):.4f}")
                     return
                 else:
-                    print(f"[{i+1}/50] Buffer filling... Status: {status}")
+                    print(f"[{i+1}/50] Signal processing... Intensity: {acc_val:.1f}")
             else:
                 print(f"Error {response.status_code}: {response.text}")
                 
@@ -44,7 +55,6 @@ def simulate_distress():
             print(f"Connection failed: {e}. Is the backend running?")
             break
             
-        # tiny delay to avoid overwhelming the loop instantly but enough to see output
         time.sleep(0.01)
 
 if __name__ == "__main__":

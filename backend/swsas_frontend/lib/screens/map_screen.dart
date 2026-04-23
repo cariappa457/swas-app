@@ -35,7 +35,15 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _onMapCreated(GoogleMapController controller) {
+    debugPrint("🗺️ DIAGNOSTIC: Google Map Widget created.");
     mapController = controller;
+    
+    // Check if the controller is responsive
+    mapController?.getVisibleRegion().then((bounds) {
+      debugPrint("🗺️ DIAGNOSTIC: Map visible region: $bounds");
+    }).catchError((e) {
+      debugPrint("🗺️ DIAGNOSTIC ERROR: Could not get visible region. This usually means the API key is invalid or unauthorized. Error: $e");
+    });
   }
 
   Future<void> _fetchHotspots() async {
@@ -109,15 +117,15 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
-  void _simulateRoute() {
+  Future<void> _simulateRoute() async {
     // Generate a direct route
-    final route = RouteUtils.generateMockRoute(_startLocation, _mockDestination);
+    final route = await RouteUtils.generateMockRoute(_startLocation, _mockDestination);
     _evaluateAndDrawRoute(route);
   }
 
-  void _findSaferRoute() {
+  Future<void> _findSaferRoute() async {
     // Generate an offset route to avoid the center
-    final safeRoute = RouteUtils.generateSafeRoute(_startLocation, _mockDestination);
+    final safeRoute = await RouteUtils.generateSafeRoute(_startLocation, _mockDestination);
     _evaluateAndDrawRoute(safeRoute);
   }
 

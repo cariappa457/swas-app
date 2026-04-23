@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 import models, schemas
 from database import get_db
 import datetime
 import numpy as np
 from sklearn.cluster import KMeans
+import logging
+from dependencies import get_current_user
+from ml_inference import lstm_predictor
 
 router = APIRouter()
 
@@ -111,11 +114,6 @@ def get_hotspots(db: Session = Depends(get_db)):
         "features": features
     }
 
-from dependencies import get_current_user
-from ml_inference import lstm_predictor
-from fastapi import BackgroundTasks
-import logging
-
 logger = logging.getLogger(__name__)
 
 # In-memory buffer for sliding sensor windows per user
@@ -194,8 +192,6 @@ def upload_sensor_data(
         "buffered": len(_sensor_buffers[uid]),
         "required": 50
     }
-
-from dependencies import get_current_user
 
 @router.post("/report-incident", response_model=schemas.Incident)
 def report_incident(payload: schemas.ReportIncidentPayload, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):

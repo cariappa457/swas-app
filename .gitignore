@@ -1,0 +1,33 @@
+# Security: Ignore environment variables and secrets
+.env
+*.env
+backend/.env
+
+# Firebase secrets
+**/google-services.json
+**/GoogleService-Info.plist
+
+# Python
+**/__pycache__/
+*.pyc
+backend/venv/
+
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database (Optional: remove from tracking if you want a clean slate for others)
+# backend/sql_app.db

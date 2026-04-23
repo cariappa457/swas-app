@@ -8,10 +8,11 @@ router = APIRouter()
 
 @router.post("/register", response_model=schemas.User, status_code=status.HTTP_201_CREATED)
 def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
+    db_user_email = db.query(models.User).filter(models.User.email == user.email).first()
+    db_user_phone = db.query(models.User).filter(models.User.phone == user.phone).first()
+    if db_user_email or db_user_phone:
+        raise HTTPException(status_code=400, detail="Email or Phone already registered")
+
     new_user = models.User(
         firebase_uid=user.firebase_uid,
         email=user.email,

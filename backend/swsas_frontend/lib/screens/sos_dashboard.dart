@@ -4,11 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../config/environment.dart';
 import '../widgets/custom_button.dart';
 import '../services/emergency_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../services/background_service.dart';
 import 'map_screen.dart';
 
 /// Redesigned SOS Dashboard with premium UI/UX.
@@ -59,6 +62,35 @@ class _SosDashboardState extends State<SosDashboard>
     _pulseAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+
+    // After UI builds, ask for permissions and start the service
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndStartBackgroundService();
+    });
+  }
+
+  Future<void> _checkAndStartBackgroundService() async {
+    // Android 13+ strict notification permission
+    if (await Permission.notification.isDenied) {
+      await Permission.notification.request();
+    }
+    
+    // Android location permission for foreground service type "location"
+    if (await Permission.location.isDenied) {
+      await Permission.location.request();
+    }
+
+    // Android SMS permission for automatic alerts
+    if (await Permission.sms.isDenied) {
+      await Permission.sms.request();
+    }
+
+    // Try starting it now that we (hopefully) have permissions
+    try {
+      await initializeBackgroundService();
+    } catch (e) {
+      debugPrint("Could not start background service from Dashboard: $e");
+    }
   }
 
   @override
@@ -119,32 +151,34 @@ class _SosDashboardState extends State<SosDashboard>
   }
 
   Future<List<dynamic>> _fetchContacts() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      // Mock data for local testing when Firebase is bypassed
-      return [
-        {"name": "Mom", "phone": "112"},
-        {"name": "Dad (Work)", "phone": "112"},
-        {"name": "Local Police", "phone": "100"},
-        {"name": "Community Guard", "phone": "100"}
-      ];
+    // Check if Firebase is actually initialized before using it
+    if (Firebase.apps.isNotEmpty) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        try {
+          final token = await user.getIdToken();
+          final response = await http.get(
+            Uri.parse('${Environment.apiBaseUrl}/api/contacts'),
+            headers: {
+              'Authorization': 'Bearer $token',
+            },
+          );
+          if (response.statusCode == 200) {
+            return jsonDecode(response.body);
+          }
+        } catch (e) {
+          debugPrint("Error fetching contacts: $e");
+        }
+      }
     }
     
-    try {
-      final token = await user.getIdToken();
-      final response = await http.get(
-        Uri.parse('${Environment.apiBaseUrl}/api/contacts'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
-      );
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      }
-    } catch (e) {
-      debugPrint("Error fetching contacts: $e");
-    }
-    return [];
+    // Mock data for local testing when Firebase is bypassed or user not logged in
+    return [
+      {"name": "Mom", "phone": "112"},
+      {"name": "Dad (Work)", "phone": "112"},
+      {"name": "Local Police", "phone": "100"},
+      {"name": "Community Guard", "phone": "100"}
+    ];
   }
 
   Future<void> _fireSOSAPI() async {

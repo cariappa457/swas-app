@@ -5,42 +5,59 @@ logger = logging.getLogger(__name__)
 
 class MockLSTMPredictor:
     """
-    A mathematical mock of the LSTM Model for Python environments (e.g., Python 3.12+)
-    where TensorFlow wheels may not be available for the exact architecture.
-    
-    The original model_lstm.py generated anomalies by injecting ±15.0 variance 
-    instead of the ambient ±2.0. This mock detects those exact statistical shifts 
-    on the incoming 50x6 sensor arrays to perfectly mimic the trained LSTM's output.
+    Upgraded Real-World Signal Architecture (DSVA): 
+    Detects distress signatures using impulse detection, signal jitter analysis, 
+    and post-impact stabilization monitoring.
     """
     def __init__(self, timesteps=50, features=6):
         self.timesteps = timesteps
         self.features = features
-        self.threshold_std = 5.0 # Empirical threshold between ambient (var~1.3) and anomalous (var~8.6)
+        self.impact_threshold = 20.0  # Combined G-force spike for impact
+        self.shake_threshold = 6.0    # Mean absolute deviation for shaking/running
+        self.stillness_threshold = 0.5 # Near-zero movement detection
 
     def predict_anomaly(self, sensor_window):
-        """
-        Receives a numpy array of shape (timesteps, features).
-        Outputs a float probability between 0.0 and 1.0 of distress.
-        """
         try:
             arr = np.array(sensor_window)
             if arr.shape != (self.timesteps, self.features):
-                logger.warning(f"Predictor expected shape ({self.timesteps}, {self.features}), got {arr.shape}")
                 return 0.0
 
-            # Calculate the standard deviation across all timesteps for all features
-            # High standard deviation indicates erratic shaking/falling (anomaly).
-            std_devs = np.std(arr, axis=0)
-            avg_std = np.mean(std_devs)
+            # 1. Total Magnitude Calculation
+            # Sqrt(x^2 + y^2 + z^2) for accelerometer
+            acc_mag = np.linalg.norm(arr[:, :3], axis=1)
             
-            # Map the variance to a probability sigmoid curve mimicking LSTM output
-            # A low ambient variance (~1.15 for uniform(-2,2)) yields ~0.02
-            # A high variance (~8.66 for uniform(-15,15)) yields ~0.98
-            probability = 1.0 / (1.0 + np.exp(-(avg_std - self.threshold_std)))
-            return float(probability)
+            # 2. Impact Detection (The Peak)
+            peak_impact = np.max(acc_mag)
+            
+            # 3. Movement Jitter (The Shake)
+            # Standard deviation of the entire window
+            shake_intensity = np.mean(np.std(arr, axis=0))
+            
+            # 4. Post-Impact Monitoring (Stabilization)
+            # Check the last 10 samples of the window (potential drop/stillness)
+            tail_stillness = np.std(acc_mag[-10:])
+            
+            prob = 0.0
+            
+            # Logic: If we see a massive peak followed by sudden silence -> FAST FALL
+            if peak_impact > self.impact_threshold and tail_stillness < self.stillness_threshold:
+                prob = 0.95
+                logger.info(f"DSVA: High Impact ({peak_impact:.1f}) and Silence detected - Prob: {prob}")
+            
+            # Logic: If signal has sustained high jitter -> PANIC/SHAKE/RUNNING
+            elif shake_intensity > self.shake_threshold:
+                # Map intensity to probability (Logistic-like sigmoid)
+                prob = 1.0 / (1.0 + np.exp(-(shake_intensity - self.shake_threshold)))
+                logger.info(f"DSVA: Sustained Jitter ({shake_intensity:.1f}) detected - Prob: {prob}")
+            
+            # Logic: Normal ambient movement
+            else:
+                prob = 0.02
+                
+            return float(prob)
             
         except Exception as e:
-            logger.error(f"Error during ML inference: {e}")
+            logger.error(f"Error during DSVA inference: {e}")
             return 0.0
 
 # Singleton instance
