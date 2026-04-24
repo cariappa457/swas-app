@@ -23,6 +23,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from routers import user, sos, analytics, tracking, telemetry
+
 app.include_router(user.router, prefix="/api", tags=["Users"])
 app.include_router(sos.router, prefix="/api", tags=["SOS"])
 app.include_router(analytics.router, prefix="/api", tags=["Analytics"])

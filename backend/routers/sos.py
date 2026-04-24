@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
 import models, schemas
@@ -29,8 +29,12 @@ def send_emergency_sms(user: models.User, lat: float, lng: float, db: Session):
 
     if not all([account_sid, auth_token, from_phone]):
         logger.warning("Twilio credentials missing. Falling back to dummy SMS logging.")
+        print("====== [TWILIO SIMULATION] ======")
         for contact in contacts:
+            print(f"📞 SENDING SMS -> {contact.phone}")
+            print(f"✉️ BODY: {message_body}")
             logger.info(f"[DUMMY SMS] To: {contact.phone} | Body: {message_body}")
+        print("=================================")
         return
 
     try:
@@ -62,6 +66,11 @@ def trigger_emergency_call(
     user: models.User = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
+    print("\n" + "="*50)
+    print(f"🚨 [BACKEND DEBUG] /sos/trigger-call HIT! 🚨")
+    print(f"   User: {user.name} | Coords: {payload.lat}, {payload.lng}")
+    print(f"   Trigger Type: {payload.trigger_type}")
+    print("="*50 + "\n")
     # 1. Rate Limiting Check (Prevent abuse)
     now = datetime.datetime.utcnow()
     if user.last_emergency_call_time:

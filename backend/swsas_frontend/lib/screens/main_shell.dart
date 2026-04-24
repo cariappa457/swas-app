@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'map_screen.dart';
 import 'sos_dashboard.dart';
-import 'profile_screen.dart'; // We'll create this next
+import 'profile_screen.dart';
+import 'dart:math';
+import 'dart:async';
+import 'package:sensors_plus/sensors_plus.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../config/environment.dart';
 
 class MainShell extends StatefulWidget {
   final int initialIndex;
@@ -14,11 +20,51 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   late int _currentIndex;
+  StreamSubscription? _accelerometerSub;
+  bool _isSosCooldown = false;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    _setupShakeDetection();
+  }
+
+  void _setupShakeDetection() {
+    try {
+      _accelerometerSub = accelerometerEvents.listen((AccelerometerEvent event) {
+        if (_isSosCooldown) return;
+        double gForce = sqrt(event.x * event.x + event.y * event.y + event.z * event.z) / 9.8;
+        
+        // SHAKE/FALL DETECTION THRESHOLD (Roughly 3 Gs of force)
+        if (gForce > 3.0) {
+          _isSosCooldown = true;
+          _triggerEmergencySos();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("🚨 DISTRESS DETECTED (SHAKE/FALL)! Triggering SOS 🚨"), backgroundColor: Colors.red),
+          );
+          Future.delayed(const Duration(seconds: 15), () {
+            _isSosCooldown = false;
+          });
+        }
+      });
+    } catch (e) {
+      print("Accelerometer init failed (likely requires HTTPS on mobile): $e");
+    }
+  }
+
+  Future<void> _triggerEmergencySos() async {
+    try {
+      final url = Uri.parse('${Environment.apiBaseUrl}/api/sos/trigger-call');
+      await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        // Hardcoding standard params for test mock
+        body: jsonEncode({"lat": 12.9716, "lng": 77.5946, "trigger_type": "auto_sensor"}),
+      );
+    } catch (e) {
+      print("SOS API Error: $e");
+    }
   }
 
   final List<Widget> _screens = [
