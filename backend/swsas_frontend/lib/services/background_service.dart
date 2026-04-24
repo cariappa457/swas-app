@@ -8,6 +8,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 
 import 'telemetry_service.dart';
 import 'fall_detection_service.dart';
+import 'emergency_service.dart';
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
@@ -30,16 +31,33 @@ void onStart(ServiceInstance service) async {
   final telemetry = TelemetryService(userId: "user_123"); 
 
   DateTime lastUpload = DateTime.now();
-  accelerometerEvents.listen((AccelerometerEvent event) {
+  DateTime lastDistressTrigger = DateTime.now().subtract(const Duration(minutes: 1));
+
+  userAccelerometerEvents.listen((UserAccelerometerEvent event) async {
     // 1. Local/On-device basic check
     double distressProb = fallService.evaluateSensorData(event);
+    
     if (distressProb > 0.8) {
-       print("⚠️ ON-DEVICE DISTRESS DETECTED! Prob: $distressProb");
-       if (service is AndroidServiceInstance) {
-         service.setForegroundNotificationInfo(
-            title: "🚨 SOS TRIGGERED!",
-            content: "Fall/Distress detected. Sending alerts.",
-         );
+       DateTime now = DateTime.now();
+       // Debounce: prevent triggering multiple SOS alerts for the same fall event (30s window)
+       if (now.difference(lastDistressTrigger).inSeconds > 30) {
+         lastDistressTrigger = now;
+         
+         print("🚨 ON-DEVICE DISTRESS DETECTED! Prob: $distressProb");
+         
+         if (service is AndroidServiceInstance) {
+           service.setForegroundNotificationInfo(
+              title: "🚨 SOS TRIGGERED!",
+              content: "Heavy movement detected. Emergency protocol initiated.",
+           );
+         }
+
+         // PRODUCTION READY: Actually trigger the emergency protocol (SMS, Call, Backend)
+         try {
+           await EmergencyService.triggerEmergencyProtocol("automatic_motion_detected");
+         } catch (e) {
+           print("Error triggering automated SOS: $e");
+         }
        }
     }
 
