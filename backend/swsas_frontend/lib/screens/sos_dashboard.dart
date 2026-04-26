@@ -11,6 +11,7 @@ import '../widgets/custom_button.dart';
 import '../services/emergency_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import '../services/background_service.dart';
 import 'map_screen.dart';
 
@@ -66,6 +67,16 @@ class _SosDashboardState extends State<SosDashboard>
     // After UI builds, ask for permissions and start the service
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndStartBackgroundService();
+      _listenToBackgroundService();
+    });
+  }
+
+  void _listenToBackgroundService() {
+    FlutterBackgroundService().on('onDistressDetected').listen((event) {
+      if (!_sosActive && mounted) {
+        debugPrint("🚨 Background service reported distress! Starting countdown...");
+        _triggerSOS();
+      }
     });
   }
 

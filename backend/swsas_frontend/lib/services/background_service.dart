@@ -52,12 +52,10 @@ void onStart(ServiceInstance service) async {
            );
          }
 
-         // PRODUCTION READY: Actually trigger the emergency protocol (SMS, Call, Backend)
-         try {
-           await EmergencyService.triggerEmergencyProtocol("automatic_motion_detected");
-         } catch (e) {
-           print("Error triggering automated SOS: $e");
-         }
+         // Notify the UI to start the countdown
+         service.invoke('onDistressDetected', {
+           "probability": distressProb,
+         });
        }
     }
 

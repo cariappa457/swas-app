@@ -18,7 +18,7 @@ class Environment {
     
     // Physical devices on the same Wi-Fi use the computer's local IP
     // Your current Local IP: 192.168.0.122
-    if (Platform.isAndroid || Platform.isIOS) return 'http://192.168.0.122:8000';
+    if (Platform.isAndroid || Platform.isIOS) return 'http://172.20.10.2:8000';
     
     return 'http://localhost:8000';
   }

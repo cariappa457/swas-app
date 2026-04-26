@@ -2,12 +2,12 @@ import 'dart:math';
 import 'package:sensors_plus/sensors_plus.dart';
 
 class FallDetectionService {
-  final int windowSize = 50;
+  final int windowSize = 15;
   
   // Empirical thresholds tuned for UserAccelerometer (gravity-free)
   // At rest, UserAccelerometer magnitude is ~0.
-  final double shakeThresholdStd = 4.0; 
-  final double fallThresholdMagnitude = 25.0; // Sudden extreme spike (~2.5g)
+  final double shakeThresholdStd = 3.5; 
+  final double fallThresholdMagnitude = 18.0; // Lowered for instant trigger on hard shakes
   
   List<double> _accelMagnitudes = [];
 
