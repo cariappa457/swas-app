@@ -23,6 +23,9 @@ dependencies:
   flutter_polyline_points: any
   web_socket_channel: any
   tflite_flutter: any
+  speech_to_text: ^6.1.0 # Voice recognition - detects 'help'
+  google_speech: ^2.0.0 # Google Speech API integration
+  record: ^5.1.0 # Audio recording from microphone
 
 dev_dependencies:
   flutter_test:
