@@ -1,0 +1,2 @@
+Found 4 connected devices:
+Terminate batch job (Y/N)? 

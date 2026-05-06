@@ -1,0 +1,8 @@
+venv/
+__pycache__/
+.pytest_cache/
+swsas_frontend/
+sql_app.db
+docker_logs.txt
+tests/
+.env

@@ -1,0 +1,30 @@
+name: swsas_app
+description: Smart Women Safety Analytics System App
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.1.0
+  shared_preferences: ^2.2.1
+  geolocator: ^10.1.0 # For SOS location
+  permission_handler: ^11.0.0
+  google_maps_flutter: ^2.5.0
+  sensors_plus: ^3.0.3 # For accelerator auto distress
+  flutter_phone_direct_caller: ^2.1.1 # Direct calling
+  url_launcher: ^6.2.5 # Fallback calling
+  firebase_core: ^4.5.0 # Firebase Auth
+  firebase_auth: ^6.2.0 # Firebase Auth Token
+  speech_to_text: ^7.0.0 # Upgraded to fix AGP namespace and Kotlin messenger bugs
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
